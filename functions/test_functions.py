@@ -2,7 +2,6 @@ import numpy as np
 
 
 def gray_map(rate):
-    # table = np.zeros([np.power(2, rate), rate])
     x = np.array([[0], [1]], dtype='int')     # initial mapping for 1 bit
     for m in range(rate-1):
         length_of_x = x.shape[0]

@@ -38,11 +38,11 @@ class DetDataset(Dataset):
 
 if __name__ == '__main__':
     TX = 8
-    RX = 16
+    RX = 8
     N_TRAIN = 1000
     N_TEST = 1000
     TRAIN_SPLIT = 0.8
-    RATE = 2
+    RATE = 1
     N_LAYERS = 10
     EBN0_TRAIN = 10
     LENGTH = 2 ** RATE
