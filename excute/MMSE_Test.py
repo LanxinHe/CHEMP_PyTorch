@@ -4,7 +4,7 @@ from functions.test_functions import gray_ber
 
 TX = 16
 RX = 16
-RATE = 2
+RATE = 1
 LENGTH = 2 ** RATE
 K = 2000
 EbN0 = 10
@@ -20,3 +20,4 @@ for k in range(K):
 predictions = np.array(predictions)
 predictions = np.round((predictions + LENGTH - 1)/2)
 ber = gray_ber(predictions, data_real, data_imag, RATE)
+print(ber)

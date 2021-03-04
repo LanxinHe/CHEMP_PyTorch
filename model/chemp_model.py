@@ -8,9 +8,8 @@ This is the modified CHEMP model proposed by TAN Xiaosi
 
 
 class CHEMPLayer(nn.Module):
-    def __init__(self, length, sigma_square_v, input_size):
+    def __init__(self, length, input_size):
         super(CHEMPLayer, self).__init__()
-        self.sigma_square_v = sigma_square_v
         self.length = length
         self.input_size = input_size  # 2tx
 
@@ -21,7 +20,7 @@ class CHEMPLayer(nn.Module):
         self.b = nn.Parameter(torch.zeros([length, input_size]), requires_grad=True)
         self.softmax = nn.Softmax(dim=1)
 
-    def forward(self, inputs, p_pre):
+    def forward(self, inputs, p_pre, sigma_square_v):
         z, j_matrix = inputs    # z(batch_size, 2tx) j_matrix(batch_size, 2tx, 2tx)
         # let p_pre be in shape of (batch_size, length, 2tx)
         expectation = torch.einsum('ijk,j->ik', p_pre, self.symbols)  # (batch_size, 2tx)
@@ -33,8 +32,8 @@ class CHEMPLayer(nn.Module):
         mu = torch.einsum('ijk,ik->ij', j_matrix, expectation) -\
             torch.multiply(expectation, j_diagonal)
         # sigma_square should be in shape of (batch_size, 2tx)
-        sigma_square = torch.einsum('ijk, ik->ij', torch.square(j_matrix), var) + self.sigma_square_v -\
-            torch.multiply(var, j_diagonal)
+        sigma_square = torch.einsum('ijk, ik->ij', torch.square(j_matrix), var) + sigma_square_v -\
+            torch.multiply(var, torch.square(j_diagonal))
 
         """L_i(s_k) = [(2(z_i-mu_i)-J_ii(s_k+s_1))(J_ii(s_k-s_1))]/(2sigma_i^2)"""
         # Therefore, we had better to calculate (s_k + s_1) and (s_k - s_1) in the beginning
@@ -57,20 +56,20 @@ class CHEMPLayer(nn.Module):
 
 
 class CHEMPModel(nn.Module):
-    def __init__(self, length, sigma_square_v, input_size, n_layers):
+    def __init__(self, length, input_size, n_layers):
         super(CHEMPModel, self).__init__()
         self.length = length
         self.input_size = input_size
         self.n_layers = n_layers
         for layer in range(n_layers):
-            setattr(self, 'chemp_layer_'+str(layer), CHEMPLayer(length, sigma_square_v, input_size))
+            setattr(self, 'chemp_layer_'+str(layer), CHEMPLayer(length, input_size))
 
-    def forward(self, inputs):
+    def forward(self, inputs, sigma_square_v):
         z, _ = inputs
         batch_size = z.shape[0]
         p = torch.ones([batch_size, self.length, self.input_size]) / self.length    # initial probability
         for layer in range(self.n_layers):
-            p = getattr(self, 'chemp_layer_'+str(layer))(inputs, p)
+            p = getattr(self, 'chemp_layer_'+str(layer))(inputs, p, sigma_square_v)
         return p
 
 

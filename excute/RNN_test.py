@@ -5,6 +5,9 @@ import torch
 import torch.nn as nn
 import torch.utils.data as Data
 from torch.utils.data import Dataset
+import numpy as np
+import pandas as pd
+import os
 
 
 # --------------------------------------------- Dataset ------------------------------------------------------
@@ -38,16 +41,17 @@ class DetDataset(Dataset):
 if __name__ == '__main__':
     TX = 8
     RX = 8
-    N_TRAIN = 60000
+    N_TRAIN = 20000
     N_TEST = 2000
-    TRAIN_SPLIT = 0.8
+    TRAIN_SPLIT = 0.9
     RATE = 2
-    N_LAYERS = 10
+    ITERATIONS = 10
     EBN0_TRAIN = 10
     LENGTH = 2 ** RATE
-    BATCH_SIZE = 20
+    BATCH_SIZE = 5
     EPOCHS = 100
-    MODEL = 'chemp'  # chemp or rnn
+    HIDDEN_SIZE = 6 * TX
+    RNN_LAYERS = 1
 
     # Here the data has already been divided by rx
     train_z, train_J, train_var, train_Data_real, train_Data_imag = data_preparation.get_data(tx=TX, rx=RX, K=N_TRAIN, rate=RATE, EbN0=EBN0_TRAIN)
@@ -62,16 +66,13 @@ if __name__ == '__main__':
     test_loader = Data.DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False)
 
     # ------------------------------------- Establish Network ----------------------------------------------
-    if MODEL == 'chemp':
-        chemp_model = chemp_model.CHEMPModel(LENGTH, 2*TX, N_LAYERS)
-    elif MODEL == 'rnn':
-        chemp_model = useRNN.CHEMPModel(LENGTH, train_var, 2*TX, N_LAYERS)
+    chemp_model = useRNN.CHEMPModel(LENGTH, 2*TX, ITERATIONS, HIDDEN_SIZE)
     loss_fn = nn.NLLLoss()
     optim_chemp = torch.optim.Adam(chemp_model.parameters(), lr=0.00005, weight_decay=0.001)
     scheduler = torch.optim.lr_scheduler.StepLR(optim_chemp, step_size=10, gamma=0.2)
-    # Froze the delta to bound the prob under 1
-    for layer in range(N_LAYERS):
-        getattr(chemp_model, 'chemp_layer_'+str(layer)).delta.requires_grad = False
+
+    p_ini = torch.ones([BATCH_SIZE, LENGTH, 2*TX]) / LENGTH  # initial probability
+    h_ini = torch.zeros([RNN_LAYERS, BATCH_SIZE, HIDDEN_SIZE])
 
     # ------------------------------------- Train ----------------------------------------------------------
     print('Begin Training:')
@@ -84,7 +85,7 @@ if __name__ == '__main__':
             optim_chemp.zero_grad()
 
             # forward + backward + optimize
-            prob = chemp_model(inputs, train_var)
+            prob, h = chemp_model(inputs, p_ini, h_ini, train_var)
             loss = loss_fn(torch.log(prob), labels)
             loss.backward()
             optim_chemp.step()
@@ -101,7 +102,7 @@ if __name__ == '__main__':
         for i, data in enumerate(val_loader, 0):
             with torch.no_grad():
                 inputs, labels = (data['z'], data['j_matrix']), data['label']
-                prob = chemp_model(inputs, train_var)
+                prob, h = chemp_model(inputs, p_ini, h_ini, train_var)
                 loss = loss_fn(torch.log(prob), labels)
                 val_loss += loss.numpy()
                 val_steps += 1
@@ -117,7 +118,7 @@ if __name__ == '__main__':
         predictions = []
         for i, data in enumerate(test_loader, 0):
             inputs, labels = (data['z'], data['j_matrix']), data['label']
-            prob = chemp_model(inputs, test_var)
+            prob, h = chemp_model(inputs, p_ini, h_ini, test_var)
             loss = loss_fn(torch.log(prob), labels)
             _, prediction = torch.max(prob, dim=1)
             predictions += [prediction]
@@ -129,5 +130,42 @@ if __name__ == '__main__':
 
         ber = gray_ber(predictions, test_Data_real, test_Data_imag, rate=RATE)
         print(ber)
+    # ------------------------------------------------- Whole Test -----------------------------------------------------
+    chemp_model.eval()
+    TEST_EBN0 = np.linspace(0, 15, 16)
+    BER = []
+    for ebn0 in TEST_EBN0:
+        test_z, test_J, test_var, test_Data_real, test_Data_imag = data_preparation.get_data(tx=TX, rx=RX, K=N_TEST,
+                                                                                             rate=RATE,
+                                                                                             EbN0=ebn0)
+        test_set = DetDataset(test_z, test_J, test_Data_real, test_Data_imag)
+        test_loader = Data.DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False)
+        with torch.no_grad():
+            test_loss = 0.0
+            test_steps = 0
+            predictions = []
+            for i, data in enumerate(test_loader, 0):
+                inputs, labels = (data['z'], data['j_matrix']), data['label']
+                prob, h = chemp_model(inputs, p_ini, h_ini, test_var)
+                loss = loss_fn(torch.log(prob), labels)
+                _, prediction = torch.max(prob, dim=1)
+                predictions += [prediction]
+                test_loss += loss.numpy()
+                test_steps += 1
+            print('test loss: %.3f' % (test_loss / test_steps))
 
-
+            predictions = torch.cat(predictions).numpy()
+            ber = gray_ber(predictions, test_Data_real, test_Data_imag, rate=RATE)
+            BER += [ber]
+    # ——----------------------------------- Save Model & Data ----------------------------------------------------------
+    PATH = '../pretrained_model/GRU_CHEMP/rx%i/tx%i/EbN0_Train%i/iterations%i/batch_size%i/hidden_size%i' % (RX, TX,
+                                                                                                                EBN0_TRAIN,
+                                                                                                                ITERATIONS,
+                                                                                                                BATCH_SIZE,
+                                                                                                                HIDDEN_SIZE)
+    os.makedirs(PATH)
+    data_ber = pd.DataFrame(BER, columns=['BER'])
+    data_ber.to_csv(PATH + str('/ber1.csv'))
+    torch.save(chemp_model.state_dict(), PATH+str('/model1.pt'))
+    # use the following line to load model
+    # chemp_model.load_state_dict(torch.load(PATH + str('/model.pt')))
