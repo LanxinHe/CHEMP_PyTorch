@@ -40,8 +40,8 @@ class DetDataset(Dataset):
 
 if __name__ == '__main__':
     TX = 8
-    RX = 8
-    N_TRAIN = 20000
+    RX = 32
+    N_TRAIN = 30000
     N_TEST = 2000
     TRAIN_SPLIT = 0.9
     RATE = 2
@@ -68,8 +68,8 @@ if __name__ == '__main__':
     # ------------------------------------- Establish Network ----------------------------------------------
     chemp_model = useRNN.CHEMPModel(LENGTH, 2*TX, ITERATIONS, HIDDEN_SIZE)
     loss_fn = nn.NLLLoss()
-    optim_chemp = torch.optim.Adam(chemp_model.parameters(), lr=0.00005, weight_decay=0.001)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim_chemp, step_size=10, gamma=0.2)
+    optim_chemp = torch.optim.Adam(chemp_model.parameters(), lr=0.00001, weight_decay=0.001)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim_chemp, step_size=10, gamma=0.4)
 
     p_ini = torch.ones([BATCH_SIZE, LENGTH, 2*TX]) / LENGTH  # initial probability
     h_ini = torch.zeros([RNN_LAYERS, BATCH_SIZE, HIDDEN_SIZE])
@@ -165,7 +165,7 @@ if __name__ == '__main__':
                                                                                                                 HIDDEN_SIZE)
     os.makedirs(PATH)
     data_ber = pd.DataFrame(BER, columns=['BER'])
-    data_ber.to_csv(PATH + str('/ber1.csv'))
-    torch.save(chemp_model.state_dict(), PATH+str('/model1.pt'))
+    data_ber.to_csv(PATH + str('/ber2.csv'))
+    torch.save(chemp_model.state_dict(), PATH+str('/model2.pt'))
     # use the following line to load model
-    # chemp_model.load_state_dict(torch.load(PATH + str('/model.pt')))
+    chemp_model.load_state_dict(torch.load(PATH + str('/model1.pt')))
