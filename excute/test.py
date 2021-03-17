@@ -39,7 +39,7 @@ class DetDataset(Dataset):
 
 
 if __name__ == '__main__':
-    TX = 8
+    TX = 16
     RX = 16
     N_TRAIN = 60000
     N_TEST = 2000
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     elif MODEL == 'rnn':
         model = useRNN.CHEMPModel(LENGTH, train_var, 2 * TX, N_LAYERS)
     loss_fn = nn.NLLLoss()
-    optim_chemp = torch.optim.Adam(model.parameters(), lr=0.00001, weight_decay=0.001)
+    optim_chemp = torch.optim.Adam(model.parameters(), lr=0.000001, weight_decay=0.001)
     scheduler = torch.optim.lr_scheduler.StepLR(optim_chemp, step_size=5, gamma=0.2)
     # Froze the delta to bound the prob under 1
     for layer in range(N_LAYERS):

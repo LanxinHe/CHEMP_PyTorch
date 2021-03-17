@@ -8,7 +8,7 @@ If we are trying to use RNN in CHEMPLayer
 
 
 class CHEMPLayer(nn.Module):
-    def __init__(self, length, input_size, hidden_size):
+    def __init__(self, length, input_size, hidden_size, rnn_layers):
         """
         :param length:
         :param input_size: 2tx
@@ -28,7 +28,7 @@ class CHEMPLayer(nn.Module):
 
         self.w_delta = nn.Parameter(torch.randn([1, hidden_size]))
         self.b_delta = nn.Parameter(torch.zeros([1]))
-        self.gru = nn.GRU(length, hidden_size)
+        self.gru = nn.GRU(length, hidden_size, num_layers=rnn_layers)
         self.softmax = nn.Softmax(dim=1)
         self.sigmoid = nn.Sigmoid()
 
@@ -74,13 +74,13 @@ class CHEMPLayer(nn.Module):
 
 
 class CHEMPModel(nn.Module):
-    def __init__(self, length, input_size, iterations, hidden_size):
+    def __init__(self, length, input_size, iterations, hidden_size, rnn_layers):
         super(CHEMPModel, self).__init__()
         self.length = length
         self.input_size = input_size
         self.iterations = iterations
         for layer in range(iterations):
-            setattr(self, 'layer_'+str(layer), CHEMPLayer(length, input_size, hidden_size))
+            setattr(self, 'layer_'+str(layer), CHEMPLayer(length, input_size, hidden_size, rnn_layers))
 
     def forward(self, inputs, p, h, sigma_square_v):
         for i in range(self.iterations):

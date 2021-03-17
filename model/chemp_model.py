@@ -72,6 +72,3 @@ class CHEMPModel(nn.Module):
             p = getattr(self, 'chemp_layer_'+str(layer))(inputs, p, sigma_square_v)
         return p
 
-
-
-
