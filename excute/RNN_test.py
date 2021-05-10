@@ -165,7 +165,7 @@ if __name__ == '__main__':
                                                                                                                 HIDDEN_SIZE)
     os.makedirs(PATH)
     data_ber = pd.DataFrame(BER, columns=['BER'])
-    data_ber.to_csv(PATH + str('/ber1.csv'))
-    torch.save(chemp_model.state_dict(), PATH+str('/model1.pt'))
+    data_ber.to_csv(PATH + str('/ber.csv'))
+    torch.save(chemp_model.state_dict(), PATH+str('/model.pt'))
     # use the following line to load model
     chemp_model.load_state_dict(torch.load(PATH + str('/model1.pt')))
