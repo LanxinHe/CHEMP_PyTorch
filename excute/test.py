@@ -1,5 +1,6 @@
 from functions import data_preparation
-from model import chemp_model, useRNN
+from model_max import chemp_model
+from model_max import GRU_chemp
 from functions.test_functions import gray_ber
 import torch
 import torch.nn as nn
@@ -39,9 +40,9 @@ class DetDataset(Dataset):
 
 
 if __name__ == '__main__':
-    TX = 16
-    RX = 16
-    N_TRAIN = 60000
+    TX = 8
+    RX = 8
+    N_TRAIN = 100000
     N_TEST = 2000
     TRAIN_SPLIT = 0.8
     RATE = 2
@@ -49,8 +50,9 @@ if __name__ == '__main__':
     EBN0_TRAIN = 10
     LENGTH = 2 ** RATE
     BATCH_SIZE = 20
-    EPOCHS = 100
-    MODEL = 'chemp'  # chemp or rnn
+    EPOCHS = 10
+    MODEL = 'rnn'  # chemp or rnn
+    GRU_HIDDEN_SIZE = 2*TX
 
     # Here the data has already been divided by rx
     train_z, train_J, train_var, train_Data_real, train_Data_imag = data_preparation.get_data(tx=TX, rx=RX, K=N_TRAIN, rate=RATE, EbN0=EBN0_TRAIN)
@@ -68,13 +70,13 @@ if __name__ == '__main__':
     if MODEL == 'chemp':
         model = chemp_model.CHEMPModel(LENGTH, 2 * TX, N_LAYERS)
     elif MODEL == 'rnn':
-        model = useRNN.CHEMPModel(LENGTH, train_var, 2 * TX, N_LAYERS)
+        model = GRU_chemp.CHEMPModel(LENGTH, 2 * TX, N_LAYERS, GRU_HIDDEN_SIZE, 1)
     loss_fn = nn.NLLLoss()
-    optim_chemp = torch.optim.Adam(model.parameters(), lr=0.000001, weight_decay=0.001)
+    optim_chemp = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = torch.optim.lr_scheduler.StepLR(optim_chemp, step_size=5, gamma=0.2)
     # Froze the delta to bound the prob under 1
-    for layer in range(N_LAYERS):
-        getattr(model, 'chemp_layer_' + str(layer)).delta.requires_grad = True
+    # for layer in range(N_LAYERS):
+    #     getattr(model, 'chemp_layer_' + str(layer)).delta.requires_grad = False
 
     # ------------------------------------- Train ----------------------------------------------------------
     print('Begin Training:')
@@ -161,15 +163,15 @@ if __name__ == '__main__':
             BER += [ber]
 
     # ——----------------------------------- Save Model & Data ----------------------------------------------------------
-    PATH = '../pretrained_model/Tan_CHEMP/rx%i/tx%i/EbN0_Train%i/n_layers%i/batch_size%i' % (RX, TX,
+    PATH = '../pretrained_max_model/Tan_CHEMP/rx%i/tx%i/EbN0_Train%i/n_layers%i/batch_size%i' % (RX, TX,
                                                                                              EBN0_TRAIN,
                                                                                              N_LAYERS,
                                                                                              BATCH_SIZE,
                                                                                              )
     os.makedirs(PATH)
     data_ber = pd.DataFrame(BER, columns=['BER'])
-    data_ber.to_csv(PATH + str('/ber_delta1.csv'))
-    torch.save(model.state_dict(), PATH + str('/model_delta1.pt'))
+    data_ber.to_csv(PATH + str('/ber1.csv'))
+    torch.save(model.state_dict(), PATH + str('/model1.pt'))
     # use the following line to load model
     model.load_state_dict(torch.load(PATH + str('/model_delta1.pt')))
 

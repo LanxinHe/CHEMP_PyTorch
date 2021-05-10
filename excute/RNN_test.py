@@ -1,5 +1,5 @@
 from functions import data_preparation
-from model import chemp_model, useRNN
+from model_max import GRU_chemp
 from functions.test_functions import gray_ber
 import torch
 import torch.nn as nn
@@ -39,16 +39,16 @@ class DetDataset(Dataset):
 
 
 if __name__ == '__main__':
-    TX = 16
-    RX = 16
-    N_TRAIN = 10000
+    TX = 8
+    RX = 8
+    N_TRAIN = 100000
     N_TEST = 2000
     TRAIN_SPLIT = 0.9
     RATE = 2
     ITERATIONS = 10
     EBN0_TRAIN = 10
     LENGTH = 2 ** RATE
-    BATCH_SIZE = 5
+    BATCH_SIZE = 20
     EPOCHS = 100
     HIDDEN_SIZE = 2 * TX
     RNN_LAYERS = 1
@@ -66,10 +66,10 @@ if __name__ == '__main__':
     test_loader = Data.DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=False)
 
     # ------------------------------------- Establish Network ----------------------------------------------
-    chemp_model = useRNN.CHEMPModel(LENGTH, 2*TX, ITERATIONS, HIDDEN_SIZE, RNN_LAYERS)
+    chemp_model = GRU_chemp.CHEMPModel(LENGTH, 2*TX, ITERATIONS, HIDDEN_SIZE, RNN_LAYERS)
     loss_fn = nn.NLLLoss()
-    optim_chemp = torch.optim.Adam(chemp_model.parameters(), lr=0.00001, weight_decay=0.001)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim_chemp, step_size=10, gamma=0.4)
+    optim_chemp = torch.optim.Adam(chemp_model.parameters(), lr=0.0001)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim_chemp, step_size=10, gamma=0.2)
 
     p_ini = torch.ones([BATCH_SIZE, LENGTH, 2*TX]) / LENGTH  # initial probability
     h_ini = torch.zeros([RNN_LAYERS, BATCH_SIZE, HIDDEN_SIZE])
@@ -158,7 +158,7 @@ if __name__ == '__main__':
             ber = gray_ber(predictions, test_Data_real, test_Data_imag, rate=RATE)
             BER += [ber]
     # ——----------------------------------- Save Model & Data ----------------------------------------------------------
-    PATH = '../pretrained_model/GRU_CHEMP/rx%i/tx%i/EbN0_Train%i/iterations%i/batch_size%i/hidden_size%i' % (RX, TX,
+    PATH = '../pretrained_max_model/GRU_CHEMP/rx%i/tx%i/EbN0_Train%i/iterations%i/batch_size%i/hidden_size%i/rate1' % (RX, TX,
                                                                                                                 EBN0_TRAIN,
                                                                                                                 ITERATIONS,
                                                                                                                 BATCH_SIZE,
